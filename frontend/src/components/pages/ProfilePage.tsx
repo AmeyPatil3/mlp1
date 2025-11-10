@@ -61,6 +61,18 @@ const ProfilePage: React.FC = () => {
                 ctx.drawImage(img, 0, 0, width, height);
                 const resizedBase64 = canvas.toDataURL('image/jpeg', 0.8);
                 setFormData({ ...formData, profileImage: resizedBase64 });
+                // Auto-upload image immediately
+                (async () => {
+                    try {
+                        const { data } = await api.put('/users/profile', { profileImage: resizedBase64 });
+                        const updatedUser = (data && data.user) ? data.user : data;
+                        if (updatedUser) {
+                            updateUser(updatedUser);
+                        }
+                    } catch (err) {
+                        console.error('Failed to upload profile image:', err);
+                    }
+                })();
             };
         };
         reader.readAsDataURL(file);
@@ -75,7 +87,7 @@ const ProfilePage: React.FC = () => {
             });
             const updatedUser = (data && data.user) ? data.user : data;
             if (updatedUser) {
-                updateUser({ user: updatedUser, token: auth?.token });
+                updateUser(updatedUser);
             }
             setIsEditing(false);
         } catch (error) {

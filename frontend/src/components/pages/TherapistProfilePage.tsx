@@ -65,6 +65,18 @@ const TherapistProfilePage: React.FC = () => {
                 ctx.drawImage(img, 0, 0, width, height);
                 const resizedBase64 = canvas.toDataURL('image/jpeg', 0.8);
                 setFormData({ ...formData, profileImage: resizedBase64 });
+                // Auto-upload image immediately to user profile
+                (async () => {
+                    try {
+                        const { data } = await api.put('/users/profile', { profileImage: resizedBase64 });
+                        const updatedUser = (data && data.user) ? data.user : data;
+                        if (updatedUser) {
+                            updateUser(updatedUser);
+                        }
+                    } catch (err) {
+                        console.error('Failed to upload profile image:', err);
+                    }
+                })();
             };
         };
         reader.readAsDataURL(file);
@@ -72,8 +84,34 @@ const TherapistProfilePage: React.FC = () => {
 
     const handleSaveChanges = async () => {
         try {
-            const { data } = await api.put('/therapists/profile', formData);
-            updateUser(data);
+            // Update therapist-specific fields
+            const specialtiesArray = formData.specialties
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
+            const therapistPayload: any = {
+                education: formData.education,
+                specialties: specialtiesArray,
+                experienceYears: formData.experienceYears ? parseInt(formData.experienceYears, 10) : undefined
+            };
+            const therapistRes = await api.put('/therapists/profile', therapistPayload);
+
+            // Update user profile fields (name/image)
+            const userPayload: any = {
+                fullName: formData.fullName,
+                profileImage: formData.profileImage
+            };
+            const userRes = await api.put('/users/profile', userPayload);
+
+            // Update local auth user with merged fields
+            const updatedUser = {
+                ...(auth?.user || {}),
+                ...(userRes.data?.user || {}),
+                education: therapistRes.data?.therapist?.education ?? formData.education,
+                specialties: therapistRes.data?.therapist?.specialties ?? specialtiesArray,
+                experienceYears: therapistRes.data?.therapist?.experienceYears ?? (formData.experienceYears ? parseInt(formData.experienceYears, 10) : undefined),
+            };
+            updateUser(updatedUser);
             setIsEditing(false);
         } catch (error) {
             console.error('Failed to update profile:', error);

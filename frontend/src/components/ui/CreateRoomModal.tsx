@@ -18,7 +18,14 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onCr
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name || !topic) return;
+        if (!name || name.trim().length < 3) {
+            setError('Room name must be at least 3 characters.');
+            return;
+        }
+        if (!topic || topic.trim().length < 5) {
+            setError('Topic must be at least 5 characters.');
+            return;
+        }
         setSubmitting(true);
         setError(null);
         try {
@@ -39,7 +46,15 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onCr
             if (onCreated && room) onCreated(room._id);
             onClose();
         } catch (err: any) {
-            setError(err?.response?.data?.message || 'Failed to create room');
+            const apiMessage = err?.response?.data?.message;
+            const apiErrors = err?.response?.data?.errors;
+            if (apiErrors && Array.isArray(apiErrors)) {
+                setError(apiErrors.map((e: any) => e.msg).join(', '));
+            } else if (apiMessage) {
+                setError(apiMessage);
+            } else {
+                setError('Failed to create room');
+            }
         } finally {
             setSubmitting(false);
         }

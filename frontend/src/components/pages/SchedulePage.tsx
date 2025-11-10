@@ -72,7 +72,8 @@ const SchedulePage: React.FC = () => {
         const now = new Date();
         return appointments.filter(apt => {
             const aptDate = new Date(apt.scheduledDate);
-            return aptDate >= now && (apt.status === 'scheduled' || apt.status === 'confirmed');
+            // Include cancelled future items so they appear with cancelled status
+            return aptDate >= now && (apt.status === 'scheduled' || apt.status === 'confirmed' || apt.status === 'cancelled');
         }).slice(0, 5);
     }, [appointments]);
 
@@ -137,16 +138,20 @@ const SchedulePage: React.FC = () => {
                                                 <p className="text-sm">Session with {apt.user?.fullName || 'Client'}</p>
                                                 <p className="text-xs opacity-75">Status: {apt.status}</p>
                                             </div>
-                                            {apt.meetingLink && (
-                                                <a
-                                                    href={apt.meetingLink}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                                                >
-                                                    Join
-                                                </a>
-                                            )}
+                                            {(() => {
+                                                const enabled = Boolean(apt.meetingLink) && apt.status !== 'cancelled';
+                                                return (
+                                                    <a
+                                                        href={enabled ? apt.meetingLink : '#'}
+                                                        target={enabled ? '_blank' : undefined}
+                                                        rel={enabled ? 'noopener noreferrer' : undefined}
+                                                        className={`bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 ${enabled ? '' : 'opacity-50 cursor-not-allowed'}`}
+                                                        onClick={(e) => { if (!enabled) e.preventDefault(); }}
+                                                    >
+                                                        {enabled ? 'Join' : (apt.status === 'cancelled' ? 'Cancelled' : 'Awaiting Link')}
+                                                    </a>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 ))

@@ -1,0 +1,7 @@
+{
+  "name": "Mood Monitor AI",
+  "description": "An application that uses your camera to analyze your mood from facial expressions and suggests personalized preventive measures for your well-being.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

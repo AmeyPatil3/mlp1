@@ -35,11 +35,21 @@ const PeerSupportRoomPage: React.FC = () => {
     const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
     const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
 
-    const rtcConfig = useMemo<RTCConfiguration>(() => ({
-        iceServers: [
+    const rtcConfig = useMemo<RTCConfiguration>(() => {
+        const baseIce: RTCIceServer[] = [
             { urls: [ 'stun:stun.l.google.com:19302', 'stun:global.stun.twilio.com:3478' ] }
-        ]
-    }), []);
+        ];
+        const turnUrl = (process.env.VITE_TURN_URL as string) || '';
+        const turnUser = (process.env.VITE_TURN_USERNAME as string) || '';
+        const turnCred = (process.env.VITE_TURN_CREDENTIAL as string) || '';
+        if (turnUrl && turnUser && turnCred) {
+            baseIce.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+        } else {
+            baseIce.push({ urls: 'turn:relay.metered.live:80', username: 'free', credential: 'free' });
+            baseIce.push({ urls: 'turn:relay.metered.live:443', username: 'free', credential: 'free' });
+        }
+        return { iceServers: baseIce } as RTCConfiguration;
+    }, []);
 
     const toId = (value: any): string => String(value);
 
@@ -59,14 +69,17 @@ const PeerSupportRoomPage: React.FC = () => {
                 // Resolve Mongo room _id by roomId
                 const res = await api.get('/rooms', { params: { page: 1, limit: 50 } });
                 const rooms = res.data?.rooms || [];
-                const room = rooms.find((r: any) => r.roomId === roomId);
+                const room = rooms.find((r: any) => {
+                    const rid = String(roomId);
+                    return r.roomId === rid || String(r._id) === rid;
+                });
                 if (!room) return;
                 roomMongoIdRef.current = room._id;
 
                 // Ensure API join
                 await api.post(`/rooms/${room._id}/join`).catch(() => {});
 
-                const socket = io('http://localhost:5001', {
+                const socket = io((process.env.VITE_SOCKET_URL as string) || 'http://localhost:5001', {
                     auth: { token },
                     transports: ['websocket']
                 });
@@ -78,6 +91,7 @@ const PeerSupportRoomPage: React.FC = () => {
 
                 socket.on('room_participants', (payload: any) => {
                     if (!isMounted) return;
+                    console.log('Received room participants:', payload);
                     const others: Participant[] = (payload.participants || []).map((p: any) => ({
                         id: toId(p.id),
                         name: p.name,
@@ -89,10 +103,12 @@ const PeerSupportRoomPage: React.FC = () => {
                     // Existing users will initiate offers when they receive 'user_joined'.
                     // Deterministic initiator: the user with lexicographically smaller ID initiates to the other
                     const selfId = toId(payload.selfId);
+                    console.log('Self ID:', selfId, 'Others:', others.map(p => p.id));
                     if (selfId) {
                         ensureLocalStream().then(() => {
                             others.forEach(p => {
                                 if (selfId < p.id) {
+                                    console.log('Initiating offer to', p.id, 'because', selfId, '<', p.id);
                                     createAndSendOffer(p.id);
                                 }
                             });
@@ -140,11 +156,13 @@ const PeerSupportRoomPage: React.FC = () => {
                     const fromUserId: string = toId(payload?.from?.id);
                     const offer: RTCSessionDescriptionInit = payload?.offer;
                     if (!fromUserId || !offer) return;
+                    console.log('Received offer from', fromUserId, offer);
                     await ensureLocalStream();
                     const pc = getOrCreatePeerConnection(fromUserId);
                     await pc.setRemoteDescription(new RTCSessionDescription(offer));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
+                    console.log('Sending answer to', fromUserId, answer);
                     emitSocket('video_call_answer', { roomId: roomMongoIdRef.current, answer, targetUserId: fromUserId });
                 });
 
@@ -152,6 +170,7 @@ const PeerSupportRoomPage: React.FC = () => {
                     const fromUserId: string = toId(payload?.from?.id);
                     const answer: RTCSessionDescriptionInit = payload?.answer;
                     if (!fromUserId || !answer) return;
+                    console.log('Received answer from', fromUserId, answer);
                     const pc = peerConnectionsRef.current.get(fromUserId);
                     if (!pc) return;
                     await pc.setRemoteDescription(new RTCSessionDescription(answer));
@@ -161,11 +180,14 @@ const PeerSupportRoomPage: React.FC = () => {
                     const fromUserId: string = toId(payload?.from?.id);
                     const candidate: RTCIceCandidateInit = payload?.candidate;
                     if (!fromUserId || !candidate) return;
+                    console.log('Received ICE candidate from', fromUserId, candidate);
                     const pc = peerConnectionsRef.current.get(fromUserId);
                     if (!pc) return;
                     try {
                         await pc.addIceCandidate(new RTCIceCandidate(candidate));
-                    } catch {}
+                    } catch (e) {
+                        console.error('Failed to add ICE candidate:', e);
+                    }
                 });
 
                 // Initial welcome
@@ -270,6 +292,7 @@ const PeerSupportRoomPage: React.FC = () => {
         // ICE candidates
         pc.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log('Sending ICE candidate to', remoteUserId, event.candidate);
                 emitSocket('ice_candidate', { roomId: roomMongoIdRef.current, candidate: event.candidate.toJSON(), targetUserId: remoteUserId });
             }
         };
@@ -278,6 +301,7 @@ const PeerSupportRoomPage: React.FC = () => {
         pc.ontrack = (event) => {
             const [stream] = event.streams;
             if (stream) {
+                console.log('Received remote stream from', remoteUserId, stream);
                 remoteStreamsRef.current.set(remoteUserId, stream);
                 // Force refresh by toggling state reference
                 setParticipants(prev => [...prev]);
@@ -286,9 +310,14 @@ const PeerSupportRoomPage: React.FC = () => {
 
         pc.onconnectionstatechange = () => {
             const state = pc?.connectionState;
+            console.log('Peer connection state changed for', remoteUserId, 'to', state);
             if (state === 'failed' || state === 'disconnected' || state === 'closed') {
                 remoteStreamsRef.current.delete(remoteUserId);
             }
+        };
+
+        pc.oniceconnectionstatechange = () => {
+            console.log('ICE connection state changed for', remoteUserId, 'to', pc.iceConnectionState);
         };
 
         return pc;
@@ -299,6 +328,7 @@ const PeerSupportRoomPage: React.FC = () => {
         const pc = getOrCreatePeerConnection(remoteUserId);
         const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
         await pc.setLocalDescription(offer);
+        console.log('Sending offer to', remoteUserId, offer);
         emitSocket('video_call_offer', { roomId: roomMongoIdRef.current, offer, targetUserId: remoteUserId });
     };
 

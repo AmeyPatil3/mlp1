@@ -18,7 +18,7 @@ const VideoParticipant: React.FC<VideoParticipantProps> = ({ participant, isLoca
         if (stream && !participant.isCameraOff) {
             video.srcObject = stream;
             const play = async () => {
-                try { await video.play(); } catch (_) {}
+                try { await video.play(); } catch (e) { console.warn('Video play failed:', e); }
             };
             play();
         } else {

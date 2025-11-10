@@ -154,15 +154,21 @@ const TherapistDashboardPage: React.FC = () => {
                                         {` · ${formatTimeRange(apt.scheduledDate, apt.duration || 60)} · ${apt.status}`}
                                     </p>
                                 </div>
-                                <a
-                                    href={apt.meetingLink || '#'}
-                                    target={apt.meetingLink ? '_blank' : undefined}
-                                    rel={apt.meetingLink ? 'noopener noreferrer' : undefined}
-                                    className={`bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 ${apt.meetingLink ? '' : 'opacity-50 cursor-not-allowed'}`}
-                                    onClick={(e) => { if (!apt.meetingLink) e.preventDefault(); }}
-                                >
-                                    {apt.meetingLink ? 'Join Call' : 'Awaiting Link'}
-                                </a>
+                                {(() => {
+                                    const joinLink = apt.meetingLink ? apt.meetingLink.replace('app/member/room/', 'app/therapist/room/') : '';
+                                    const enabled = Boolean(joinLink) && apt.status !== 'cancelled';
+                                    return (
+                                        <a
+                                            href={enabled ? joinLink : '#'}
+                                            target={enabled ? '_blank' : undefined}
+                                            rel={enabled ? 'noopener noreferrer' : undefined}
+                                            className={`bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 ${enabled ? '' : 'opacity-50 cursor-not-allowed'}`}
+                                            onClick={(e) => { if (!enabled) e.preventDefault(); }}
+                                        >
+                                            {enabled ? 'Join Call' : (apt.status === 'cancelled' ? 'Cancelled' : 'Awaiting Link')}
+                                        </a>
+                                    );
+                                })()}
                             </li>
                         ))}
                     </ul>

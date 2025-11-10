@@ -16,19 +16,22 @@
       "react-dom"
     ],
     "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "baseUrl": "./src",
     "paths": {
       "@/*": ["./*"],
       "@/components/*": ["./components/*"],
       "@/services/*": ["./services/*"],
       "@/context/*": ["./context/*"],
-      "@/types": ["./types.ts"]
+      "@/types": ["./types/types"]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true

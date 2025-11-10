@@ -22,6 +22,7 @@ import TherapistDashboardLayout from './components/ui/TherapistDashboardLayout';
 import TherapistDashboardPage from './components/pages/TherapistDashboardPage';
 import SchedulePage from './components/pages/SchedulePage';
 import TherapistProfilePage from './components/pages/TherapistProfilePage';
+import MoodCheckerPage from './components/pages/MoodCheckerPage';
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
               <Route path="rooms" element={<RoomsPage />} />
               <Route path="therapists" element={<TherapistDirectoryPage />} />
               <Route path="bookings" element={<BookingsPage />} />
+              <Route path="mood" element={<MoodCheckerPage />} />
               <Route path="history" element={<RoomHistoryPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="room/:roomId" element={<PeerSupportRoomPage />} />
@@ -53,6 +55,7 @@ function App() {
               <Route index element={<TherapistDashboardPage />} />
               <Route path="schedule" element={<SchedulePage />} />
               <Route path="profile" element={<TherapistProfilePage />} />
+              <Route path="room/:roomId" element={<PeerSupportRoomPage />} />
             </Route>
           </Route>
 

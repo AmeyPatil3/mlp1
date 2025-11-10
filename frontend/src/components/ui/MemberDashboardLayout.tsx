@@ -49,6 +49,9 @@ const MemberSidebar: React.FC = () => {
                 <NavLink to="/app/member/bookings" className={navLinkClasses}>
                     <CalendarDaysIcon className="w-5 h-5 mr-3" /> Your Bookings
                 </NavLink>
+                <NavLink to="/app/member/mood" className={navLinkClasses}>
+                    <BrainCircuitIcon className="w-5 h-5 mr-3" /> Mood Checker
+                </NavLink>
                 <NavLink to="/app/member/history" className={navLinkClasses}>
                     <ClockIcon className="w-5 h-5 mr-3" /> Room History
                 </NavLink>

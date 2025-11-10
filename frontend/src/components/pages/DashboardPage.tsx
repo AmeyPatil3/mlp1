@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { UsersIcon, UserHeartIcon, CalendarDaysIcon } from '../ui/icons';
+import { UsersIcon, UserHeartIcon, CalendarDaysIcon, BrainCircuitIcon } from '../ui/icons';
 import api from '../../services/api';
 
 const MemberDashboardPage: React.FC = () => {
@@ -82,6 +82,26 @@ const MemberDashboardPage: React.FC = () => {
                         className="mt-6 inline-block w-full text-center bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors duration-300"
                     >
                         Find a Therapist
+                    </Link>
+                </div>
+                <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-shadow duration-300">
+                    <div className="flex items-center">
+                        <div className="p-3 bg-indigo-100 rounded-lg">
+                            <BrainCircuitIcon className="w-8 h-8 text-indigo-600" />
+                        </div>
+                        <div className="ml-4">
+                            <h2 className="text-2xl font-bold text-gray-800">Mood Checker</h2>
+                            <p className="text-gray-600">AI-assisted mood insights.</p>
+                        </div>
+                    </div>
+                    <p className="mt-4 text-gray-600">
+                        Quickly check in on your mood and get supportive suggestions tailored to you.
+                    </p>
+                    <Link
+                        to="/app/member/mood"
+                        className="mt-6 inline-block w-full text-center bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors duration-300"
+                    >
+                        Open Mood Checker
                     </Link>
                 </div>
                 <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-shadow duration-300">

@@ -1,8 +1,0 @@
-{
-  "name": "MindLink: Anonymous Mental Health Support",
-  "description": "An anonymous platform for individuals dealing with stress, anxiety, and other mental health challenges. It allows them to connect with peers in group video chats and find therapists for private sessions.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
-}
