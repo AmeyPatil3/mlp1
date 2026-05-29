@@ -59,7 +59,7 @@ const LoginPage: React.FC = () => {
             const g = (window as any).google;
             if (g) {
                 g.accounts.id.initialize({
-                    client_id: "717272708294-d4cvf82np8hcv2pvd622ecu108i7pjh1.apps.googleusercontent.com", // update to actual google client id when ready
+                    client_id: (process.env.VITE_GOOGLE_CLIENT_ID as string) || "717272708294-d4cvf82np8hcv2pvd622ecu108i7pjh1.apps.googleusercontent.com",
                     callback: handleGoogleCallback,
                     auto_select: false
                 });

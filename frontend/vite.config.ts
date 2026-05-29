@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL || 'http://localhost:5001'),
         'process.env.VITE_SOCKET_URL': JSON.stringify(env.VITE_SOCKET_URL || 'http://localhost:5001'),
+        'process.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(env.VITE_GOOGLE_CLIENT_ID || '717272708294-d4cvf82np8hcv2pvd622ecu108i7pjh1.apps.googleusercontent.com'),
         'process.env.VITE_TURN_URL': JSON.stringify(env.VITE_TURN_URL || ''),
         'process.env.VITE_TURN_USERNAME': JSON.stringify(env.VITE_TURN_USERNAME || ''),
         'process.env.VITE_TURN_CREDENTIAL': JSON.stringify(env.VITE_TURN_CREDENTIAL || '')
