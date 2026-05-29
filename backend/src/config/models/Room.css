@@ -1,0 +1,38 @@
+.room-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    background-color: #0f172a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 12px;
+    width: 95%;
+    height: 90%;
+  }
+  
+  .remote-video {
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    object-fit: cover;
+    background-color: black;
+  }
+  
+  .local-video {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 220px;
+    height: 140px;
+    border-radius: 10px;
+    border: 2px solid white;
+    object-fit: cover;
+    z-index: 10;
+  }
+  

@@ -64,7 +64,7 @@ chatMessageSchema.index({ sender: 1, createdAt: -1 });
 chatMessageSchema.pre(/^find/, function(next) {
   this.populate({
     path: 'sender',
-    select: 'fullName profileImage role anonymousAlias isAnonymousEnabled'
+    select: 'fullName profileImage role'
   });
   next();
 });

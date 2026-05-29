@@ -94,9 +94,68 @@ roomSchema.pre(/^find/, function(next) {
     select: 'fullName profileImage'
   }).populate({
     path: 'participants.user',
-    select: 'fullName profileImage'
+    select: 'fullName profileImage anonymousAlias isAnonymousEnabled'
   });
   next();
 });
+
+roomSchema.statics.expireInactiveRooms = async function(io) {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  
+  // Find all candidate public rooms
+  const candidateRooms = await this.find({ isPrivate: false });
+  
+  const roomsToDelete = candidateRooms.filter(room => {
+    // 1. Must have zero active participants (no one is currently in the room/chat)
+    const activeCount = room.participants.filter(p => p.isActive).length;
+    if (activeCount > 0) {
+      return false;
+    }
+    
+    // 2. If no one ever joined the room, expire it 1 hour after creation
+    if (room.participants.length === 0) {
+      return new Date(room.createdAt || room.updatedAt) < oneHourAgo;
+    }
+    
+    // 3. Find the latest timestamp when a participant left the room
+    const leftAtTimes = room.participants
+      .map(p => p.leftAt ? new Date(p.leftAt).getTime() : 0)
+      .filter(t => t > 0);
+      
+    if (leftAtTimes.length === 0) {
+      // Fallback if they left but no leftAt is populated
+      return new Date(room.updatedAt) < oneHourAgo;
+    }
+    
+    const latestLeftAt = new Date(Math.max(...leftAtTimes));
+    return latestLeftAt < oneHourAgo;
+  });
+
+  const roomIds = roomsToDelete.map(r => r._id);
+  if (roomIds.length > 0) {
+    try {
+      // Delete associated chat messages
+      await mongoose.model('ChatMessage').deleteMany({ room: { $in: roomIds } });
+    } catch (err) {
+      console.error('Failed to delete associated chat messages:', err);
+    }
+    // Delete the rooms
+    const result = await this.deleteMany({ _id: { $in: roomIds } });
+
+    // Broadcast room deletions globally in real-time
+    if (io) {
+      roomsToDelete.forEach(r => {
+        io.emit('room_deleted', {
+          id: r._id.toString(),
+          roomId: r.roomId
+        });
+      });
+    }
+
+    return result;
+  }
+
+  return { acknowledged: true, deletedCount: 0 };
+};
 
 export default mongoose.model('Room', roomSchema);

@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
-import User from '../models/User.js';
-import Therapist from '../models/Therapist.js';
-import Room from '../models/Room.js';
+import User from '../src/models/User.js';
+import Therapist from '../src/models/Therapist.js';
+import Room from '../src/models/Room.js';
 
 // Load environment variables
 dotenv.config();
@@ -24,12 +24,16 @@ const seedUsers = async () => {
     await User.deleteMany({});
     await Therapist.deleteMany({});
 
+    // Hash password manually since insertMany bypasses Mongoose pre-save hooks
+    const salt = bcrypt.genSaltSync(12);
+    const hashedPassword = bcrypt.hashSync('password123', salt);
+
     // Create sample users
     const users = [
       {
         fullName: 'Alex Johnson',
         email: 'alex@example.com',
-        password: 'password123',
+        password: hashedPassword,
         mobile: '123-456-7890',
         role: 'user',
         profileImage: 'https://i.pravatar.cc/150?u=alex'
@@ -37,7 +41,7 @@ const seedUsers = async () => {
       {
         fullName: 'Sarah Wilson',
         email: 'sarah@example.com',
-        password: 'password123',
+        password: hashedPassword,
         mobile: '234-567-8901',
         role: 'user',
         profileImage: 'https://i.pravatar.cc/150?u=sarah'
@@ -45,7 +49,7 @@ const seedUsers = async () => {
       {
         fullName: 'Mike Chen',
         email: 'mike@example.com',
-        password: 'password123',
+        password: hashedPassword,
         mobile: '345-678-9012',
         role: 'user',
         profileImage: 'https://i.pravatar.cc/150?u=mike'
@@ -60,7 +64,7 @@ const seedUsers = async () => {
       {
         fullName: 'Dr. Evelyn Reed',
         email: 'evelyn.reed@example.com',
-        password: 'password123',
+        password: hashedPassword,
         mobile: '456-789-0123',
         role: 'therapist',
         profileImage: 'https://i.pravatar.cc/300?u=evelyn'
@@ -68,7 +72,7 @@ const seedUsers = async () => {
       {
         fullName: 'Dr. Ben Carter',
         email: 'ben.carter@example.com',
-        password: 'password123',
+        password: hashedPassword,
         mobile: '567-890-1234',
         role: 'therapist',
         profileImage: 'https://i.pravatar.cc/300?u=ben'
@@ -76,7 +80,7 @@ const seedUsers = async () => {
       {
         fullName: 'Dr. Olivia Chen',
         email: 'olivia.chen@example.com',
-        password: 'password123',
+        password: hashedPassword,
         mobile: '678-901-2345',
         role: 'therapist',
         profileImage: 'https://i.pravatar.cc/300?u=olivia'
@@ -142,13 +146,7 @@ const seedRooms = async (users) => {
         topic: 'General discussion for anxiety management and support',
         description: 'A safe space to discuss anxiety-related concerns and share coping strategies.',
         createdBy: users[0]._id,
-        participants: [
-          {
-            user: users[0]._id,
-            joinedAt: new Date(),
-            isActive: true
-          }
-        ],
+        participants: [],
         maxParticipants: 15,
         tags: ['anxiety', 'support', 'mental-health'],
         isActive: true
@@ -159,13 +157,7 @@ const seedRooms = async (users) => {
         topic: 'Share something positive from your day',
         description: 'Celebrate small victories and positive moments in your daily life.',
         createdBy: users[1]._id,
-        participants: [
-          {
-            user: users[1]._id,
-            joinedAt: new Date(),
-            isActive: true
-          }
-        ],
+        participants: [],
         maxParticipants: 20,
         tags: ['positivity', 'daily-wins', 'motivation'],
         isActive: true
@@ -176,13 +168,7 @@ const seedRooms = async (users) => {
         topic: 'Techniques for managing stress and building resilience',
         description: 'Learn and share effective stress management techniques and relaxation methods.',
         createdBy: users[2]._id,
-        participants: [
-          {
-            user: users[2]._id,
-            joinedAt: new Date(),
-            isActive: true
-          }
-        ],
+        participants: [],
         maxParticipants: 12,
         tags: ['stress', 'relaxation', 'coping-strategies'],
         isActive: true
@@ -193,13 +179,7 @@ const seedRooms = async (users) => {
         topic: 'Support and understanding for those dealing with depression',
         description: 'A compassionate space for sharing experiences and finding hope.',
         createdBy: users[0]._id,
-        participants: [
-          {
-            user: users[0]._id,
-            joinedAt: new Date(),
-            isActive: true
-          }
-        ],
+        participants: [],
         maxParticipants: 10,
         tags: ['depression', 'support-group', 'healing'],
         isActive: true
@@ -210,13 +190,7 @@ const seedRooms = async (users) => {
         topic: 'Practice mindfulness and meditation techniques together',
         description: 'Guided meditation sessions and mindfulness practice discussions.',
         createdBy: users[1]._id,
-        participants: [
-          {
-            user: users[1]._id,
-            joinedAt: new Date(),
-            isActive: true
-          }
-        ],
+        participants: [],
         maxParticipants: 25,
         tags: ['mindfulness', 'meditation', 'wellness'],
         isActive: true
@@ -236,6 +210,15 @@ const seedRooms = async (users) => {
 const seedDatabase = async () => {
   try {
     await connectDB();
+    
+    // Safety check to prevent wiping custom profiles during development
+    const isForce = process.argv.includes('--force');
+    const userCount = await User.countDocuments();
+    if (userCount > 0 && !isForce) {
+      console.log('\n⚠️  Database already contains user records. Skipping seeding to prevent wiping your custom profiles.');
+      console.log('👉 If you explicitly want to reset and re-seed the database, run: npm run seed -- --force\n');
+      return;
+    }
     
     console.log('Starting database seeding...');
     

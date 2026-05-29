@@ -5,9 +5,7 @@ type IconProps = {
 };
 
 export const BrainCircuitIcon: React.FC<IconProps> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-  </svg>
+  <img src="/logo.png" alt="MindLink Logo" className={`${className} object-contain`} />
 );
 
 export const UsersIcon: React.FC<IconProps> = ({ className }) => (
@@ -17,9 +15,15 @@ export const UsersIcon: React.FC<IconProps> = ({ className }) => (
 );
 
 export const UserHeartIcon: React.FC<IconProps> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    {/* User silhouette */}
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zM2.5 18a5.5 5.5 0 0110-3.5" />
+    {/* Magnifying Glass Lens */}
+    <circle cx="15.5" cy="14.25" r="4.25" stroke="currentColor" strokeWidth={1.5} />
+    {/* Magnifying Glass Handle */}
+    <path strokeLinecap="round" strokeLinejoin="round" d="M18.5 17.25l3 3" />
+    {/* Heart Accent (glowing red center) */}
+    <path strokeLinecap="round" strokeLinejoin="round" fill="#EF4444" stroke="#EF4444" strokeWidth={0.5} d="M15.5 16.5l-.25-.22c-.93-.84-1.55-1.4-1.55-2.08 0-.55.43-.98.98-.98.31 0 .61.14.82.38.21-.24.51-.38.82-.38.55 0 .98.43.98.98 0 .68-.62 1.24-1.55 2.08l-.25.22z" />
   </svg>
 );
 
@@ -129,4 +133,22 @@ export const LockClosedIcon: React.FC<IconProps> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 0 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
     </svg>
+);
+
+export const SparklesIcon: React.FC<IconProps> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-.813-5.096L3 15l5.096-.813L9 9l.813 5.187L15 15l-5.187.904zM18 5.25L17.25 8l-.75-2.75L13.75 4.5l2.75-.75L17.25 1l.75 2.75 2.75.75-2.75.75zM20.25 17.25l-.375 1.375-.375-1.375-1.375-.375 1.375-.375.375-1.375.375 1.375 1.375.375-1.375.375z" />
+  </svg>
+);
+
+export const FaceSmileIcon: React.FC<IconProps> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z" />
+  </svg>
+);
+
+export const Squares2X2Icon: React.FC<IconProps> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+  </svg>
 );

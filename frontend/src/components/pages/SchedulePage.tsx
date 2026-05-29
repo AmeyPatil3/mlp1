@@ -139,16 +139,16 @@ const SchedulePage: React.FC = () => {
                                                 <p className="text-xs opacity-75">Status: {apt.status}</p>
                                             </div>
                                             {(() => {
-                                                const enabled = Boolean(apt.meetingLink) && apt.status !== 'cancelled';
+                                                const enabled = Boolean(apt.meetingLink) && apt.status !== 'cancelled' && apt.status !== 'completed' && apt.status !== 'no-show';
                                                 return (
                                                     <a
                                                         href={enabled ? apt.meetingLink : '#'}
                                                         target={enabled ? '_blank' : undefined}
                                                         rel={enabled ? 'noopener noreferrer' : undefined}
-                                                        className={`bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 ${enabled ? '' : 'opacity-50 cursor-not-allowed'}`}
+                                                        className={`bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 ${enabled ? '' : 'opacity-50 cursor-not-allowed bg-gray-200 text-gray-400 hover:bg-gray-200'}`}
                                                         onClick={(e) => { if (!enabled) e.preventDefault(); }}
                                                     >
-                                                        {enabled ? 'Join' : (apt.status === 'cancelled' ? 'Cancelled' : 'Awaiting Link')}
+                                                        {enabled ? 'Join' : (apt.status === 'completed' ? 'Completed' : (apt.status === 'cancelled' ? 'Cancelled' : 'Awaiting Link'))}
                                                     </a>
                                                 );
                                             })()}

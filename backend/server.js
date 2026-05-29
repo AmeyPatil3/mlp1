@@ -19,6 +19,10 @@ import userRoutes from './src/routes/users.js';
 import therapistRoutes from './src/routes/therapists.js';
 import roomRoutes from './src/routes/rooms.js';
 import appointmentRoutes from './src/routes/appointments.js';
+import aiRoutes from './src/routes/ai.js';
+import clinicalNotesRoutes from './src/routes/clinicalNotes.js';
+import googleAuthRoutes from './src/routes/googleAuth.js';
+import otpRoutes from './src/routes/otp.js';
 
 // Import middleware
 import { errorHandler, notFound } from './src/middleware/errorHandler.js';
@@ -26,6 +30,8 @@ import { errorHandler, notFound } from './src/middleware/errorHandler.js';
 // Import socket handler
 import SocketHandler from './src/socket/socketHandler.js';
 import Therapist from './src/models/Therapist.js';
+import Room from './src/models/Room.js';
+import Appointment from './src/models/Appointment.js';
 
 // Load environment variables
 dotenv.config();
@@ -38,8 +44,23 @@ mongoose.connection.once('open', async () => {
   try {
     await Therapist.syncIndexes();
     console.log('Therapist indexes synchronized');
+
+    // Run startup cleanup of expired inactive rooms and appointments
+    await Room.expireInactiveRooms(io);
+    await Appointment.expirePassedAppointments(io);
+    console.log('Expired inactive rooms and passed appointments cleaned up successfully');
+
+    // Set up periodic cleanup running every 30 seconds
+    setInterval(async () => {
+      try {
+        await Room.expireInactiveRooms(io);
+        await Appointment.expirePassedAppointments(io);
+      } catch (err) {
+        console.error('Failed to execute periodic cleanup:', err);
+      }
+    }, 30 * 1000);
   } catch (err) {
-    console.error('Failed to sync Therapist indexes:', err);
+    console.error('Failed to initialize models/indexes or run startup cleanup:', err);
   }
 });
 
@@ -63,6 +84,9 @@ const io = new Server(server, {
 
 // Initialize socket handler
 const socketHandler = new SocketHandler(io);
+
+// Bind Socket.IO instance to express app to allow routes to access it
+app.set('io', io);
 
 // Optional: enable Redis adapter for horizontal scaling of Socket.IO
 // This allows multiple backend instances to handle socket rooms concurrently
@@ -156,6 +180,10 @@ app.use('/api/users', userRoutes);
 app.use('/api/therapists', therapistRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/clinical-notes', clinicalNotesRoutes);
+app.use('/api/auth/google-login', googleAuthRoutes);
+app.use('/api/auth/otp', otpRoutes);
 
 // Root API endpoint
 app.get('/api', (req, res) => {

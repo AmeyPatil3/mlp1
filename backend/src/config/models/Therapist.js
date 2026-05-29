@@ -27,26 +27,6 @@ const therapistSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  roleType: {
-    type: String,
-    trim: true,
-    default: 'Counseling Psychologist / Psychotherapist'
-  },
-  languagesSpoken: [{
-    type: String,
-    trim: true
-  }],
-  digitalSignature: {
-    type: String
-  },
-  stateResidence: {
-    type: String,
-    trim: true
-  },
-  cityResidence: {
-    type: String,
-    trim: true
-  },
   bio: {
     type: String,
     maxlength: [1000, 'Bio cannot exceed 1000 characters']
@@ -98,7 +78,7 @@ therapistSchema.pre('save', function(next) {
 therapistSchema.pre(/^find/, function(next) {
   this.populate({
     path: 'user',
-    select: 'fullName email profileImage role mobile'
+    select: 'fullName email profileImage role'
   });
   next();
 });

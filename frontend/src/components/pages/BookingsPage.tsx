@@ -3,6 +3,8 @@ import { CalendarDaysIcon, ClockIcon, UserIcon } from '../ui/icons';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import BookingModal from '../ui/BookingModal';
+import type { Therapist } from '../../types';
 
 type PopulatedUser = {
     _id: string;
@@ -21,6 +23,8 @@ type PopulatedTherapistUser = {
 type PopulatedTherapist = {
     _id: string;
     user: PopulatedTherapistUser;
+    specialties?: string[];
+    experienceYears?: number;
 };
 
 type Appointment = {
@@ -45,6 +49,10 @@ const BookingsPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [cancellingId, setCancellingId] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+    // Booking modal state
+    const [bookingTherapist, setBookingTherapist] = useState<Therapist | null>(null);
+    const [bookingOpen, setBookingOpen] = useState(false);
 
     // Redirect therapists to their dashboard
     useEffect(() => {
@@ -88,6 +96,35 @@ const BookingsPage: React.FC = () => {
         const end = new Date(start.getTime() + durationMinutes * 60000);
         const fmt = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
         return `${fmt(start)} - ${fmt(end)}`;
+    };
+
+    const fmtDate = (iso: string) =>
+        new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+    const fmtTime = (iso: string) =>
+        new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+    const handleBookAgain = (apt: Appointment) => {
+        const t = apt.therapist;
+        const therapistObj: Therapist = {
+            _id: t._id,
+            fullName: t.user?.fullName || 'Therapist',
+            email: t.user?.email || '',
+            profileImage: t.user?.profileImage || 'https://i.pravatar.cc/150',
+            specialties: t.specialties || [],
+            experienceYears: t.experienceYears || 0,
+        };
+        setBookingTherapist(therapistObj);
+        setBookingOpen(true);
+    };
+
+    const statusColors: Record<string, string> = {
+        completed: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+        cancelled: 'bg-red-50 text-red-700 border-red-100',
+        'no-show': 'bg-orange-50 text-orange-700 border-orange-100',
+        scheduled: 'bg-blue-50 text-blue-700 border-blue-100',
+        confirmed: 'bg-green-50 text-green-700 border-green-100',
+        'in-progress': 'bg-yellow-50 text-yellow-700 border-yellow-100',
     };
 
     const upcomingAppointments = useMemo(() => {
@@ -254,14 +291,23 @@ const BookingsPage: React.FC = () => {
                                             </div>
                                             <div className="flex space-x-2 ml-4">
                                                 {apt.meetingLink && (
-                                                    <a
-                                                        href={apt.meetingLink}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                                                    >
-                                                        Join Session
-                                                    </a>
+                                                    apt.status === 'completed' ? (
+                                                        <button
+                                                            disabled
+                                                            className="bg-gray-100 text-gray-400 px-4 py-2 rounded-lg text-sm font-medium cursor-not-allowed border border-gray-200"
+                                                        >
+                                                            Completed
+                                                        </button>
+                                                    ) : (
+                                                        <a
+                                                            href={apt.meetingLink}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                                                        >
+                                                            Join Session
+                                                        </a>
+                                                    )
                                                 )}
                                                 {apt.status === 'scheduled' && (
                                                     <button
@@ -284,48 +330,71 @@ const BookingsPage: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Past Appointments */}
+                    {/* Your Past Appointments */}
                     {pastAppointments.length > 0 && (
                         <div className="bg-white rounded-xl shadow-md p-6">
                             <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-                                <ClockIcon className="w-6 h-6 mr-2 text-gray-600" />
-                                Past Appointments
+                                <ClockIcon className="w-6 h-6 mr-2 text-blue-600" />
+                                Your Past Appointments
                             </h2>
-                            <div className="space-y-4">
-                                {pastAppointments.slice(0, 5).map((apt) => (
-                                    <div key={apt._id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex-1">
-                                                <div className="flex items-center mb-2">
-                                                    <UserIcon className="w-5 h-5 mr-2 text-gray-500" />
-                                                    <h3 className="text-lg font-semibold text-gray-800">
-                                                        {apt.therapist?.user?.fullName || 'Therapist'}
-                                                    </h3>
-                                                    <span className={`ml-3 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(apt.status)}`}>
-                                                        {apt.status}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center text-gray-600">
-                                                    <ClockIcon className="w-4 h-4 mr-2" />
-                                                    <span>
-                                                        {new Date(apt.scheduledDate).toLocaleDateString('en-US', { 
-                                                            year: 'numeric', 
-                                                            month: 'short', 
-                                                            day: 'numeric',
-                                                            hour: 'numeric',
-                                                            minute: '2-digit',
-                                                            hour12: true
-                                                        })}
-                                                    </span>
+                            <div className="space-y-3">
+                                {pastAppointments.map((apt) => {
+                                    const therapistName = apt.therapist?.user?.fullName || 'Therapist';
+                                    const therapistImg = apt.therapist?.user?.profileImage;
+                                    const statusCls = statusColors[apt.status] || 'bg-gray-100 text-gray-600 border-gray-200';
+
+                                    return (
+                                        <div
+                                            key={apt._id}
+                                            className="bg-white rounded-2xl border border-gray-100 hover:border-gray-200 shadow-sm hover:shadow transition-all p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                                        >
+                                            {/* Left — therapist info + date */}
+                                            <div className="flex items-center gap-4">
+                                                <img
+                                                    src={therapistImg || `https://i.pravatar.cc/150?u=${apt.therapist?._id}`}
+                                                    alt={therapistName}
+                                                    className="w-12 h-12 rounded-full object-cover border-2 border-gray-100 flex-shrink-0"
+                                                />
+                                                <div>
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <p className="font-bold text-gray-800 text-sm">{therapistName}</p>
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${statusCls}`}>
+                                                            {apt.status}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1.5">
+                                                        <span>📅</span>
+                                                        {fmtDate(apt.scheduledDate)}
+                                                        <span>•</span>
+                                                        <span>🕒</span>
+                                                        {fmtTime(apt.scheduledDate)}
+                                                    </p>
                                                 </div>
                                             </div>
+
+                                            {/* Right — Book Again button */}
+                                            <button
+                                                onClick={() => handleBookAgain(apt)}
+                                                className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition-all shadow-md shadow-blue-500/15 flex items-center gap-1.5"
+                                            >
+                                                🔁 Book Again
+                                            </button>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* Booking Modal */}
+            {bookingTherapist && (
+                <BookingModal
+                    isOpen={bookingOpen}
+                    onClose={() => { setBookingOpen(false); setBookingTherapist(null); }}
+                    therapist={bookingTherapist}
+                />
             )}
         </div>
     );

@@ -18,17 +18,8 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [function() { return this.authProvider === 'local'; }, 'Password is required']
-  },
-  googleId: {
-    type: String,
-    unique: true,
-    sparse: true
-  },
-  authProvider: {
-    type: String,
-    enum: ['local', 'google'],
-    default: 'local'
+    required: [true, 'Password is required'],
+    minlength: [6, 'Password must be at least 6 characters long']
   },
   mobile: {
     type: String,
@@ -38,32 +29,6 @@ const userSchema = new mongoose.Schema({
   profileImage: {
     type: String,
     default: 'https://i.pravatar.cc/150'
-  },
-  anonymousAlias: {
-    type: String,
-    trim: true,
-    maxlength: [50, 'Alias cannot exceed 50 characters']
-  },
-  isAnonymousEnabled: {
-    type: Boolean,
-    default: false
-  },
-  stateResidence: {
-    type: String,
-    trim: true
-  },
-  cityResidence: {
-    type: String,
-    trim: true
-  },
-  primaryConcern: {
-    type: String,
-    trim: true
-  },
-  emergencyContact: {
-    name: { type: String, trim: true, default: '' },
-    relation: { type: String, trim: true, default: '' },
-    mobile: { type: String, trim: true, default: '' }
   },
   role: {
     type: String,
@@ -89,7 +54,7 @@ const userSchema = new mongoose.Schema({
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password') || !this.password) return next();
+  if (!this.isModified('password')) return next();
   
   try {
     const salt = await bcrypt.genSalt(12);

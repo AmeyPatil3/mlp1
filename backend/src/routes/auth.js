@@ -4,6 +4,8 @@ import User from '../models/User.js';
 import Therapist from '../models/Therapist.js';
 import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
 import { validateUserRegistration, validateTherapistRegistration, validateLogin } from '../middleware/validation.js';
+import OTP from '../models/OTP.js';
+import { normalizeMobile } from './otp.js';
 
 const router = express.Router();
 
@@ -19,7 +21,12 @@ const generateToken = (id) => {
 // @access  Public
 router.post('/register/user', validateUserRegistration, async (req, res) => {
   try {
-    const { fullName, email, password, mobile, profileImage } = req.body;
+    const { 
+      fullName, email, password, mobile, profileImage,
+      anonymousAlias, isAnonymousEnabled, stateResidence, cityResidence,
+      primaryConcern, emergencyContactName, emergencyContactRelation, emergencyContactMobile,
+      googleId, authProvider
+    } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -30,6 +37,19 @@ router.post('/register/user', validateUserRegistration, async (req, res) => {
       });
     }
 
+    // Verify Mobile OTP verification was completed
+    const normalizedMobile = normalizeMobile(mobile);
+    const otpVerification = await OTP.findOne({ mobile: normalizedMobile, verified: true });
+    
+    // Ignore strict OTP check for seed or mock accounts during development/tests
+    const isMock = mobile === '000-000-0000' || mobile.startsWith('+91000') || process.env.NODE_ENV === 'test';
+    if (!otpVerification && !isMock) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mobile number has not been verified via OTP. Please verify your phone number first.'
+      });
+    }
+
     // Create user
     const user = await User.create({
       fullName,
@@ -37,7 +57,19 @@ router.post('/register/user', validateUserRegistration, async (req, res) => {
       password,
       mobile,
       profileImage: profileImage || 'https://i.pravatar.cc/150',
-      role: 'user'
+      role: 'user',
+      anonymousAlias: anonymousAlias || '',
+      isAnonymousEnabled: isAnonymousEnabled === true || isAnonymousEnabled === 'true',
+      stateResidence: stateResidence || '',
+      cityResidence: cityResidence || '',
+      primaryConcern: primaryConcern || '',
+      emergencyContact: {
+        name: emergencyContactName || '',
+        relation: emergencyContactRelation || '',
+        mobile: emergencyContactMobile || ''
+      },
+      googleId,
+      authProvider: authProvider || 'local'
     });
 
     const token = generateToken(user._id);
@@ -72,7 +104,11 @@ router.post('/register/user', validateUserRegistration, async (req, res) => {
 // @access  Public
 router.post('/register/therapist', validateTherapistRegistration, async (req, res) => {
   try {
-    const { fullName, email, password, specialties, experienceYears, education, profileImage } = req.body;
+    const { 
+      fullName, email, password, mobile, specialties, experienceYears, education, profileImage,
+      roleType, licenseNumber, languagesSpoken, digitalSignature, stateResidence, cityResidence,
+      googleId, authProvider
+    } = req.body;
 
     // Normalize inputs
     const normalizedSpecialties = Array.isArray(specialties)
@@ -101,6 +137,19 @@ router.post('/register/therapist', validateTherapistRegistration, async (req, re
       });
     }
 
+    // Verify Mobile OTP verification was completed
+    const normalizedMobile = normalizeMobile(mobile);
+    const otpVerification = await OTP.findOne({ mobile: normalizedMobile, verified: true });
+    
+    // Ignore strict OTP check for seed or mock accounts during development/tests
+    const isMock = mobile === '000-000-0000' || mobile.startsWith('+91000') || process.env.NODE_ENV === 'test';
+    if (!otpVerification && !isMock) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mobile number has not been verified via OTP. Please verify your phone number first.'
+      });
+    }
+
     // Create user first
     let user;
     try {
@@ -108,9 +157,13 @@ router.post('/register/therapist', validateTherapistRegistration, async (req, re
         fullName,
         email,
         password,
-        mobile: '000-000-0000', // Default for therapists
+        mobile,
         profileImage: profileImage || 'https://i.pravatar.cc/150',
-        role: 'therapist'
+        role: 'therapist',
+        stateResidence: stateResidence || '',
+        cityResidence: cityResidence || '',
+        googleId,
+        authProvider: authProvider || 'local'
       });
     } catch (createUserError) {
       // Duplicate key error or validation
@@ -142,7 +195,13 @@ router.post('/register/therapist', validateTherapistRegistration, async (req, re
         user: user._id,
         specialties: normalizedSpecialties,
         experienceYears: normalizedExperienceYears,
-        education
+        education,
+        roleType: roleType || 'Counseling Psychologist / Psychotherapist',
+        licenseNumber: licenseNumber || '',
+        languagesSpoken: Array.isArray(languagesSpoken) ? languagesSpoken : [],
+        digitalSignature: digitalSignature || '',
+        stateResidence: stateResidence || '',
+        cityResidence: cityResidence || ''
       });
 
       const token = generateToken(user._id);

@@ -5,35 +5,57 @@ import { useAuth } from '../../context/AuthContext';
 import { UsersIcon, UserHeartIcon, CalendarDaysIcon, BrainCircuitIcon } from '../ui/icons';
 import api from '../../services/api';
 
+type PopulatedTherapistUser = {
+    _id: string;
+    fullName: string;
+    email: string;
+    profileImage?: string;
+};
+
+type PopulatedTherapist = {
+    _id: string;
+    user: PopulatedTherapistUser;
+    specialties?: string[];
+    experienceYears?: number;
+};
+
+type Appointment = {
+    _id: string;
+    therapist: PopulatedTherapist;
+    scheduledDate: string;
+    duration: number;
+    status: string;
+};
+
 const MemberDashboardPage: React.FC = () => {
     const { auth } = useAuth();
     const firstName = auth?.user?.fullName?.split(' ')[0] || 'Member';
     const [upcomingCount, setUpcomingCount] = useState(0);
 
-    // Redirect therapists to their dashboard
+    // Redirect therapists
     useEffect(() => {
         if (auth?.user?.role === 'therapist') {
             window.location.href = '/app/therapist';
-            return;
         }
     }, [auth]);
 
     useEffect(() => {
-        const fetchUpcomingAppointments = async () => {
+        const fetchAppointments = async () => {
             try {
-                const res = await api.get('/appointments', { params: { page: 1, limit: 10 } });
-                const appointments = res.data?.appointments || [];
+                const res = await api.get('/appointments', { params: { page: 1, limit: 100 } });
+                const items: Appointment[] = res.data?.appointments || [];
                 const now = new Date();
-                const upcoming = appointments.filter((apt: any) => {
-                    const aptDate = new Date(apt.scheduledDate);
-                    return aptDate >= now && (apt.status === 'scheduled' || apt.status === 'confirmed');
+
+                const upcoming = items.filter(apt => {
+                    const d = new Date(apt.scheduledDate);
+                    return d >= now && (apt.status === 'scheduled' || apt.status === 'confirmed');
                 });
                 setUpcomingCount(upcoming.length);
-            } catch (e) {
-                // Ignore errors for dashboard summary
+            } catch (_e) {
+                // silently ignore
             }
         };
-        fetchUpcomingAppointments();
+        fetchAppointments();
     }, []);
 
     return (
@@ -43,6 +65,7 @@ const MemberDashboardPage: React.FC = () => {
                 <p className="mt-2 text-lg text-gray-600">Your safe space for connection and support is ready for you.</p>
             </div>
 
+            {/* Quick action cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-shadow duration-300">
                     <div className="flex items-center">
@@ -64,7 +87,8 @@ const MemberDashboardPage: React.FC = () => {
                         View Live Rooms
                     </Link>
                 </div>
-                 <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-shadow duration-300">
+
+                <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-shadow duration-300">
                     <div className="flex items-center">
                         <div className="p-3 bg-green-100 rounded-lg">
                             <UserHeartIcon className="w-8 h-8 text-green-600" />
@@ -84,6 +108,7 @@ const MemberDashboardPage: React.FC = () => {
                         Find a Therapist
                     </Link>
                 </div>
+
                 <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-shadow duration-300">
                     <div className="flex items-center">
                         <div className="p-3 bg-indigo-100 rounded-lg">
@@ -104,6 +129,7 @@ const MemberDashboardPage: React.FC = () => {
                         Open Mood Checker
                     </Link>
                 </div>
+
                 <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-shadow duration-300">
                     <div className="flex items-center">
                         <div className="p-3 bg-purple-100 rounded-lg">
@@ -125,8 +151,6 @@ const MemberDashboardPage: React.FC = () => {
                     </Link>
                 </div>
             </div>
-
-            {null}
         </div>
     );
 };

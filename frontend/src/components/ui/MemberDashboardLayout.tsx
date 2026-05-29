@@ -1,26 +1,73 @@
 
-import React from 'react';
-import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
+import { io } from 'socket.io-client';
 import { 
     BrainCircuitIcon, 
-    UsersIcon, 
     UserHeartIcon, 
-    ClockIcon, 
-    Cog6ToothIcon, 
     ArrowLeftOnRectangleIcon,
     VideoCameraIcon,
-    CalendarDaysIcon
+    CalendarDaysIcon,
+    ChatBubbleLeftEllipsisIcon,
+    UserIcon,
+    SparklesIcon,
+    FaceSmileIcon,
+    Squares2X2Icon
 } from './icons';
 
 const MemberSidebar: React.FC = () => {
     const { auth, logout } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const [unread, setUnread] = useState<number>(0);
 
     const handleLogout = () => {
         logout();
         navigate('/');
     };
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchUnread = async () => {
+            try {
+                const res = await api.get('/rooms/unread-count');
+                if (isMounted) setUnread(res.data?.unreadCount || 0);
+            } catch (_e) {
+                if (isMounted) setUnread(0);
+            }
+        };
+        fetchUnread();
+
+        // Establish Socket.IO subscription for unread count increment
+        const authData = localStorage.getItem('auth');
+        const token = authData ? JSON.parse(authData).token : null;
+        if (!token) return;
+
+        const socketUrl = (process.env.VITE_SOCKET_URL as string) || 'http://localhost:5001';
+        const socket = io(socketUrl, {
+            auth: { token },
+            transports: ['websocket']
+        });
+
+        socket.on('new_message_notification', () => {
+            if (isMounted && !location.pathname.endsWith('/messages')) {
+                setUnread(prev => prev + 1);
+            }
+        });
+
+        return () => {
+            isMounted = false;
+            socket.disconnect();
+        };
+    }, [location.pathname]);
+
+    useEffect(() => {
+        if (location.pathname.endsWith('/messages')) {
+            setUnread(0);
+        }
+    }, [location.pathname]);
 
     const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
         `flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 ${
@@ -32,13 +79,13 @@ const MemberSidebar: React.FC = () => {
     return (
         <div className="flex flex-col w-64 bg-white border-r border-gray-200 p-4">
             <Link to="/app/member" className="flex items-center space-x-2 px-4 mb-8">
-                <BrainCircuitIcon className="w-8 h-8 text-blue-600" />
+                <BrainCircuitIcon className="w-11 h-11 text-blue-600" />
                 <span className="text-2xl font-bold text-gray-800">MindLink</span>
             </Link>
 
             <nav className="flex-1 flex flex-col space-y-2">
                 <NavLink to="/app/member" end className={navLinkClasses}>
-                    <UsersIcon className="w-5 h-5 mr-3" /> Dashboard
+                    <Squares2X2Icon className="w-5 h-5 mr-3" /> Dashboard
                 </NavLink>
                 <NavLink to="/app/member/rooms" className={navLinkClasses}>
                     <VideoCameraIcon className="w-5 h-5 mr-3" /> Live Rooms
@@ -50,13 +97,23 @@ const MemberSidebar: React.FC = () => {
                     <CalendarDaysIcon className="w-5 h-5 mr-3" /> Your Bookings
                 </NavLink>
                 <NavLink to="/app/member/mood" className={navLinkClasses}>
-                    <BrainCircuitIcon className="w-5 h-5 mr-3" /> Mood Checker
+                    <FaceSmileIcon className="w-5 h-5 mr-3" /> Mood Checker
                 </NavLink>
-                <NavLink to="/app/member/history" className={navLinkClasses}>
-                    <ClockIcon className="w-5 h-5 mr-3" /> Room History
+                <NavLink to="/app/member/buddy" className={navLinkClasses}>
+                    <SparklesIcon className="w-5 h-5 mr-3" /> CBT AI Companion
+                </NavLink>
+                <NavLink to="/app/member/messages" className={navLinkClasses}>
+                    <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center">
+                            <ChatBubbleLeftEllipsisIcon className="w-5 h-5 mr-3" /> Messages
+                        </div>
+                        {unread > 0 && (
+                            <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-md shadow-red-500/50 flex-shrink-0"></span>
+                        )}
+                    </div>
                 </NavLink>
                 <NavLink to="/app/member/profile" className={navLinkClasses}>
-                    <Cog6ToothIcon className="w-5 h-5 mr-3" /> Profile
+                    <UserIcon className="w-5 h-5 mr-3" /> Profile
                 </NavLink>
             </nav>
 

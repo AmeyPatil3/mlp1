@@ -43,16 +43,29 @@ export const validateTherapistRegistration = [
   body('password')
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long'),
+  body('mobile')
+    .isLength({ min: 10, max: 15 })
+    .withMessage('Please provide a valid mobile number'),
   body('education')
     .trim()
     .isLength({ min: 10, max: 500 })
     .withMessage('Education must be between 10 and 500 characters'),
   body('specialties')
     .custom((value) => {
-      if (!Array.isArray(value) || value.length === 0) {
-        throw new Error('At least one specialty is required');
+      if (Array.isArray(value)) {
+        if (value.length === 0) {
+          throw new Error('At least one specialty is required');
+        }
+        return true;
       }
-      return true;
+      if (typeof value === 'string') {
+        const parts = value.split(',').map(s => s.trim()).filter(Boolean);
+        if (parts.length === 0) {
+          throw new Error('At least one specialty is required');
+        }
+        return true;
+      }
+      throw new Error('Specialties must be an array or a comma-separated string');
     }),
   body('experienceYears')
     .isNumeric()

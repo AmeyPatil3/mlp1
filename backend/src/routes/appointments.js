@@ -25,6 +25,13 @@ function escapeHtml(value = '') {
 // @access  Private
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    const io = req.app.get('io');
+    try {
+      await Appointment.expirePassedAppointments(io);
+    } catch (expireErr) {
+      console.error('Failed to expire passed appointments on fetch:', expireErr);
+    }
+
     const { status, page = 1, limit = 10 } = req.query;
     
     let filter = {};
@@ -70,6 +77,51 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// @desc    Get appointment by room ID
+// @route   GET /api/appointments/room/:roomId
+// @access  Private
+router.get('/room/:roomId', authenticateToken, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const appointment = await Appointment.findOne({ meetingRoomId: roomId });
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'No appointment associated with this room'
+      });
+    }
+
+    // Check if user has access to this appointment safely in both populated & unpopulated states
+    const patientId = appointment.user && appointment.user._id ? appointment.user._id.toString() : appointment.user?.toString();
+    let hasAccess = patientId === req.user._id.toString();
+    if (!hasAccess && req.user.role === 'therapist') {
+      const therapist = await Therapist.findOne({ user: req.user._id });
+      if (therapist) {
+        const therapistId = appointment.therapist && appointment.therapist._id ? appointment.therapist._id.toString() : appointment.therapist?.toString();
+        hasAccess = therapistId === therapist._id.toString();
+      }
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    res.json({
+      success: true,
+      appointment
+    });
+  } catch (error) {
+    console.error('Get appointment by room error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get appointment'
+    });
+  }
+});
+
 // @desc    Get single appointment
 // @route   GET /api/appointments/:id
 // @access  Private
@@ -84,12 +136,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if user has access to this appointment
-    let hasAccess = appointment.user.toString() === req.user._id.toString();
+    // Check if user has access to this appointment safely in both populated & unpopulated states
+    const patientId = appointment.user && appointment.user._id ? appointment.user._id.toString() : appointment.user?.toString();
+    let hasAccess = patientId === req.user._id.toString();
     if (!hasAccess && req.user.role === 'therapist') {
       const therapist = await Therapist.findOne({ user: req.user._id });
       if (therapist) {
-        hasAccess = appointment.therapist.toString() === therapist._id.toString();
+        const therapistId = appointment.therapist && appointment.therapist._id ? appointment.therapist._id.toString() : appointment.therapist?.toString();
+        hasAccess = therapistId === therapist._id.toString();
       }
     }
 
@@ -129,17 +183,31 @@ router.post('/', authenticateToken, authorizeRoles('user'), validateAppointment,
       });
     }
 
-    // Check for conflicting appointments
-    const conflictingAppointment = await Appointment.findOne({
+    // Fetch all active appointments for this therapist within a 4-hour window around the scheduled time
+    const fourHours = 4 * 60 * 60 * 1000;
+    const startWindow = new Date(new Date(scheduledDate).getTime() - fourHours);
+    const endWindow = new Date(new Date(scheduledDate).getTime() + fourHours);
+
+    const activeAppointments = await Appointment.find({
       therapist: therapistId,
       scheduledDate: {
-        $gte: new Date(scheduledDate),
-        $lt: new Date(new Date(scheduledDate).getTime() + (duration || 60) * 60000)
+        $gte: startWindow,
+        $lte: endWindow
       },
       status: { $in: ['scheduled', 'confirmed'] }
     });
 
-    if (conflictingAppointment) {
+    // Check for overlap in Javascript (mathematical intersection: start1 < end2 && start2 < end1)
+    const newStart = new Date(scheduledDate).getTime();
+    const newEnd = newStart + (duration || 60) * 60000;
+
+    const hasConflict = activeAppointments.some(appt => {
+      const apptStart = new Date(appt.scheduledDate).getTime();
+      const apptEnd = apptStart + (appt.duration || 60) * 60000;
+      return apptStart < newEnd && newStart < apptEnd;
+    });
+
+    if (hasConflict) {
       return res.status(400).json({
         success: false,
         message: 'Therapist is not available at this time'
@@ -157,7 +225,7 @@ router.post('/', authenticateToken, authorizeRoles('user'), validateAppointment,
       createdBy: req.user._id,
       participants: [
         { user: req.user._id, isActive: true },
-        { user: therapist.user, isActive: true }
+        { user: therapist.user._id || therapist.user, isActive: true }
       ],
       maxParticipants: 2,
       isPrivate: true
@@ -235,6 +303,54 @@ router.post('/', authenticateToken, authorizeRoles('user'), validateAppointment,
   }
 });
 
+// @desc    Create new manual clinical record/note by therapist
+// @route   POST /api/appointments/manual
+// @access  Private (Therapist only)
+router.post('/manual', authenticateToken, authorizeRoles('therapist'), async (req, res) => {
+  try {
+    const { clientId, scheduledDate, notes } = req.body;
+
+    if (!clientId || !scheduledDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Client ID and Date/Time are required'
+      });
+    }
+
+    const therapist = await Therapist.findOne({ user: req.user._id });
+    if (!therapist) {
+      return res.status(404).json({
+        success: false,
+        message: 'Therapist profile not found'
+      });
+    }
+
+    const appointment = await Appointment.create({
+      user: clientId,
+      therapist: therapist._id,
+      scheduledDate,
+      duration: 60,
+      status: 'completed',
+      type: 'video',
+      notes
+    });
+
+    // Populate user and therapist details so that it matches standard appointment responses
+    const populatedApt = await Appointment.findById(appointment._id);
+
+    res.status(201).json({
+      success: true,
+      appointment: populatedApt
+    });
+  } catch (error) {
+    console.error('Create manual appointment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create manual record'
+    });
+  }
+});
+
 // @desc    Update appointment
 // @route   PUT /api/appointments/:id
 // @access  Private
@@ -251,12 +367,14 @@ router.put('/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if user has access to this appointment
-    let hasAccess = appointment.user.toString() === req.user._id.toString();
+    // Check if user has access to this appointment safely in both populated & unpopulated states
+    const patientId = appointment.user && appointment.user._id ? appointment.user._id.toString() : appointment.user?.toString();
+    let hasAccess = patientId === req.user._id.toString();
     if (!hasAccess && req.user.role === 'therapist') {
       const therapist = await Therapist.findOne({ user: req.user._id });
       if (therapist) {
-        hasAccess = appointment.therapist.toString() === therapist._id.toString();
+        const therapistId = appointment.therapist && appointment.therapist._id ? appointment.therapist._id.toString() : appointment.therapist?.toString();
+        hasAccess = therapistId === therapist._id.toString();
       }
     }
 
@@ -265,6 +383,22 @@ router.put('/:id', authenticateToken, async (req, res) => {
         success: false,
         message: 'Access denied'
       });
+    }
+
+    // Enforce role-based privilege checks to prevent regular patients from escalating privileges
+    if (req.user.role === 'user') {
+      if (status && status !== 'cancelled') {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: Patients can only cancel appointments, not confirm or update status'
+        });
+      }
+      if (meetingLink) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: Patients cannot update the meeting link'
+        });
+      }
     }
 
     const updateData = {};

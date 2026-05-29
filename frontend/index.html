@@ -6,6 +6,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MindLink: Anonymous Mental Health Support</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            animation: {
+              'float-heart': 'floatHeart 1s ease-out forwards',
+              'fade-in': 'fadeIn 0.2s ease-out forwards',
+            },
+            keyframes: {
+              floatHeart: {
+                '0%': { transform: 'translate(-50%, -100%) scale(0.6) rotate(0deg)', opacity: '1' },
+                '50%': { transform: 'translate(calc(-50% + 15px), -250%) scale(1.2) rotate(15deg)', opacity: '0.9' },
+                '100%': { transform: 'translate(calc(-50% - 15px), -400%) scale(0.8) rotate(-15deg)', opacity: '0' },
+              },
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'scale(0.95)' },
+                '100%': { opacity: '1', transform: 'scale(1)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
   <script type="importmap">
 {
   "imports": {

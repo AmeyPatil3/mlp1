@@ -7,7 +7,7 @@ const LandingHeader: React.FC = () => (
   <header className="absolute top-0 left-0 right-0 z-50 py-6 px-4 sm:px-6 lg:px-8">
     <div className="container mx-auto flex justify-between items-center">
       <div className="flex items-center space-x-2">
-        <BrainCircuitIcon className="w-8 h-8 text-white" />
+        <BrainCircuitIcon className="w-12 h-12 text-white" />
         <span className="text-2xl font-bold text-white">MindLink</span>
       </div>
       <nav className="flex items-center space-x-4">

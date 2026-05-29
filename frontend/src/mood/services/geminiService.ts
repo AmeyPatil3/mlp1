@@ -1,79 +1,21 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import api from '../../services/api';
 import { Mood, MoodAnalysis } from '../types';
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-
-const moodAnalysisSchema = {
-  type: Type.OBJECT,
-  properties: {
-    mood: {
-      type: Type.STRING,
-      enum: Object.values(Mood),
-      description: "The dominant mood detected in the facial expression.",
-    },
-    confidence: {
-      type: Type.NUMBER,
-      description: "A confidence score from 0.0 to 1.0 for the detected mood.",
-    },
-  },
-  required: ["mood", "confidence"],
-};
-
-const suggestionsSchema = {
-    type: Type.OBJECT,
-    properties: {
-        suggestions: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-            description: "An array of 3-5 brief, actionable tips or preventive measures."
-        }
-    },
-    required: ["suggestions"],
-};
 
 export const analyzeFacialExpression = async (base64Image: string): Promise<MoodAnalysis> => {
   try {
-    if (!process.env.API_KEY) {
-      console.warn("GEMINI_API_KEY (process.env.API_KEY) is not set.");
-      return { mood: Mood.Unknown, confidence: 0 };
-    }
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: 'image/jpeg',
-              data: base64Image,
-            },
-          },
-          {
-            text: "Analyze the user's facial expression in this image. Determine the primary mood from the following options: Happy, Sad, Angry, Surprised, Neutral, Anxious. Respond with your analysis in the specified JSON format."
-          }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: moodAnalysisSchema,
-        temperature: 0.2,
-      },
-    });
-
-    const jsonString = await response.text();
-    const trimmed = (jsonString || '').trim();
-    const result = trimmed ? JSON.parse(trimmed) : {};
-
-    if (Object.values(Mood).includes(result.mood as Mood)) {
+    const response = await api.post('/ai/analyze-mood', { base64Image });
+    if (response.data && response.data.success && response.data.analysis) {
+      const { mood, confidence } = response.data.analysis;
+      if (Object.values(Mood).includes(mood as Mood)) {
         return {
-            mood: result.mood as Mood,
-            confidence: result.confidence
+          mood: mood as Mood,
+          confidence: confidence
         };
-    } else {
-        return { mood: Mood.Unknown, confidence: 0 };
+      }
     }
-    
+    return { mood: Mood.Unknown, confidence: 0 };
   } catch (error) {
-    console.error("Error analyzing facial expression:", error);
+    console.error("Error analyzing facial expression via backend:", error);
     return { mood: Mood.Unknown, confidence: 0 };
   }
 };
@@ -84,24 +26,51 @@ export const getPreventiveMeasures = async (mood: Mood): Promise<string[]> => {
   }
   
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `The user's current mood is detected as '${mood}'. Please provide 3-5 brief, positive, and actionable suggestions or preventive measures to help them maintain or improve their well-being. Frame them as gentle recommendations. Respond in the specified JSON format.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: suggestionsSchema,
-        temperature: 0.8,
-      },
-    });
-    
-    const jsonString = await response.text();
-    const trimmed = (jsonString || '').trim();
-    const result = trimmed ? JSON.parse(trimmed) : {};
-    return result.suggestions || [];
+    const response = await api.post('/ai/suggestions', { mood });
+    if (response.data && response.data.success) {
+      return response.data.suggestions || [];
+    }
+    return [];
   } catch (error) {
-    console.error("Error getting preventive measures:", error);
+    console.error("Error getting preventive measures via backend:", error);
     return ["Could not fetch suggestions at this time. Please try again."];
   }
 };
 
+export interface ChatMessageParam {
+  role: 'user' | 'model';
+  text: string;
+}
 
+export const chatWithCbtBuddy = async (history: ChatMessageParam[]): Promise<string> => {
+  try {
+    const response = await api.post('/ai/cbt-buddy', { history });
+    if (response.data && response.data.success && response.data.reply) {
+      return response.data.reply;
+    }
+    return "I heard you, but I wasn't able to compile my response. Please share how you're feeling again.";
+  } catch (error) {
+    console.error("Error communicating with CBT Buddy via backend:", error);
+    return "I'm having a brief moment of reflection. Please tell me more, or try sending that message again.";
+  }
+};
+
+export interface SoapNote {
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
+}
+
+export const generateSoapNotes = async (summaryText: string): Promise<SoapNote | null> => {
+  try {
+    const response = await api.post('/ai/generate-notes', { summaryText });
+    if (response.data && response.data.success && response.data.notes) {
+      return response.data.notes as SoapNote;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error generating SOAP notes via backend:", error);
+    return null;
+  }
+};

@@ -52,12 +52,31 @@ router.put('/profile', [
   handleValidationErrors
 ], async (req, res) => {
   try {
-    const { fullName, mobile, profileImage } = req.body;
+    const { 
+      fullName, mobile, profileImage,
+      anonymousAlias, isAnonymousEnabled, stateResidence, cityResidence,
+      primaryConcern, emergencyContactName, emergencyContactRelation, emergencyContactMobile
+    } = req.body;
     
     const updateData = {};
-    if (fullName) updateData.fullName = fullName;
-    if (mobile) updateData.mobile = mobile;
-    if (profileImage) updateData.profileImage = profileImage;
+    if (fullName !== undefined) updateData.fullName = fullName;
+    if (mobile !== undefined) updateData.mobile = mobile;
+    if (profileImage !== undefined) updateData.profileImage = profileImage;
+    if (anonymousAlias !== undefined) updateData.anonymousAlias = anonymousAlias;
+    if (isAnonymousEnabled !== undefined) {
+      updateData.isAnonymousEnabled = isAnonymousEnabled === true || isAnonymousEnabled === 'true';
+    }
+    if (stateResidence !== undefined) updateData.stateResidence = stateResidence;
+    if (cityResidence !== undefined) updateData.cityResidence = cityResidence;
+    if (primaryConcern !== undefined) updateData.primaryConcern = primaryConcern;
+    
+    if (emergencyContactName !== undefined || emergencyContactRelation !== undefined || emergencyContactMobile !== undefined) {
+      updateData.emergencyContact = {
+        name: emergencyContactName !== undefined ? emergencyContactName : (req.user.emergencyContact?.name || ''),
+        relation: emergencyContactRelation !== undefined ? emergencyContactRelation : (req.user.emergencyContact?.relation || ''),
+        mobile: emergencyContactMobile !== undefined ? emergencyContactMobile : (req.user.emergencyContact?.mobile || '')
+      };
+    }
 
     const user = await User.findByIdAndUpdate(
       req.user._id,

@@ -19,10 +19,12 @@ const MoodApp: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const stopCamera = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -33,7 +35,7 @@ const MoodApp: React.FC = () => {
     setSuggestions([]);
     setIsLoading(false);
     setIsVideoReady(false);
-  }, [stream]);
+  }, []);
 
   const startCamera = async () => {
     setError(null);
@@ -44,10 +46,15 @@ const MoodApp: React.FC = () => {
         setError("Your browser does not support camera access (getUserMedia). Please try the latest Chrome, Edge, or Safari.");
         return;
       }
-      // Attempt with chosen device → facingMode:user → generic video:true, and disable audio
+      
       const attempts: MediaStreamConstraints[] = [];
-      if (selectedDeviceId) attempts.push({ video: { deviceId: { exact: selectedDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-      attempts.push({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      if (selectedDeviceId) {
+        attempts.push({ 
+          video: { deviceId: { exact: selectedDeviceId } }, 
+          audio: false 
+        });
+      }
+      attempts.push({ video: { facingMode: 'user' }, audio: false });
       attempts.push({ video: true, audio: false });
 
       let mediaStream: MediaStream | null = null;
@@ -60,37 +67,14 @@ const MoodApp: React.FC = () => {
           lastErr = e;
         }
       }
+      
       if (!mediaStream) {
         throw lastErr || new Error("Could not start camera");
       }
+      
       setStream(mediaStream);
+      streamRef.current = mediaStream;
       setIsCameraOn(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        try {
-          if ('onloadedmetadata' in videoRef.current) {
-            videoRef.current.onloadedmetadata = async () => {
-              try { 
-                await videoRef.current?.play(); 
-                setIsVideoReady(true);
-                // Kick off an immediate analysis once video has data
-                analyzeFrame();
-              } catch {}
-            };
-            // Also listen for loadeddata as a fallback
-            videoRef.current.addEventListener('loadeddata', () => {
-              setIsVideoReady(true);
-              analyzeFrame();
-            }, { once: true });
-          } else {
-            await videoRef.current.play();
-            setIsVideoReady(true);
-            analyzeFrame();
-          }
-        } catch (playErr) {
-          // Some browsers require an additional user gesture
-        }
-      }
     } catch (err) {
       console.error("Error accessing camera:", err);
       const msg = (err as DOMException)?.name === 'NotAllowedError'
@@ -151,8 +135,37 @@ const MoodApp: React.FC = () => {
     setIsLoading(false);
   }, [currentMood, isVideoReady]);
 
+  // Handle stream binding and playback cleanly
   useEffect(() => {
-    if (isCameraOn && stream) {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (stream && isCameraOn) {
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
+      }
+      const play = async () => {
+        try { 
+          if (video.paused) {
+            await video.play(); 
+          }
+          setIsVideoReady(true);
+        } catch (e) { 
+          console.warn('MoodApp Video play failed:', e); 
+        }
+      };
+      play();
+    } else {
+      video.srcObject = null;
+      setIsVideoReady(false);
+    }
+  }, [stream, isCameraOn]);
+
+  useEffect(() => {
+    if (isCameraOn && stream && isVideoReady) {
+      // Trigger first analysis immediately once video starts playing
+      analyzeFrame();
+      
       intervalRef.current = setInterval(analyzeFrame, 5000);
     } else {
       if (intervalRef.current) {
@@ -165,13 +178,16 @@ const MoodApp: React.FC = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isCameraOn, stream, analyzeFrame]);
+  }, [isCameraOn, stream, isVideoReady, analyzeFrame]);
 
   useEffect(() => {
     return () => {
-      stopCamera();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
     };
-  }, [stopCamera]);
+  }, []);
 
   // Load available video input devices to allow user to select a specific camera (no pre-permission stream)
   useEffect(() => {
@@ -193,29 +209,22 @@ const MoodApp: React.FC = () => {
   }, [selectedDeviceId]);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 lg:p-8 font-sans">
+    <div className="bg-white text-gray-800 p-4 sm:p-6 lg:p-8 font-sans">
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       <div className="max-w-6xl mx-auto">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
-            Mood Monitor AI
-          </h1>
-          <p className="mt-2 text-lg text-gray-400">Real-time mood analysis for better well-being.</p>
-        </header>
-
         <main className="flex flex-col lg:flex-row gap-8 items-start">
           <div className="w-full lg:w-3/5 flex flex-col items-center">
             <CameraFeed videoRef={videoRef} isCameraOn={isCameraOn} />
             {!isCameraOn && !error && (
-              <p className="mt-3 text-xs text-gray-400">
+              <p className="mt-3 text-xs text-gray-500">
                 Click “Start Analysis”, then allow camera permission when prompted.
               </p>
             )}
             {devices.length > 0 && (
               <div className="mt-4 w-full max-w-md flex items-center gap-2">
-                <label className="text-sm text-gray-300">Camera:</label>
+                <label className="text-sm text-gray-600 font-semibold">Camera:</label>
                 <select
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-gray-100"
+                  className="flex-1 bg-gray-50 border border-gray-300 rounded px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={selectedDeviceId}
                   onChange={(e) => setSelectedDeviceId(e.target.value)}
                   disabled={isCameraOn}
@@ -228,16 +237,16 @@ const MoodApp: React.FC = () => {
             )}
             <button
               onClick={handleToggleCamera}
-              className={`mt-6 inline-flex items-center justify-center gap-2 px-8 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 ${
+              className={`mt-6 inline-flex items-center justify-center gap-2 px-8 py-3 border border-transparent text-base font-medium rounded-full shadow-md text-white transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white ${
                 isCameraOn 
                 ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
-                : 'bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500'
+                : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
               }`}
             >
               {isCameraOn ? <StopIcon className="w-5 h-5"/> : <CameraIcon className="w-5 h-5"/>}
               {isCameraOn ? 'Stop Analysis' : 'Start Analysis'}
             </button>
-            {error && <p className="mt-4 text-red-400 text-center">{error}</p>}
+            {error && <p className="mt-4 text-red-500 text-center">{error}</p>}
           </div>
 
           <MoodDisplay 

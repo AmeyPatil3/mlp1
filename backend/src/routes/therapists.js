@@ -28,9 +28,16 @@ router.get('/', optionalAuth, async (req, res) => {
     // Build search query
     let searchFilter = {};
     if (search) {
+      // Find matching users since user is an ObjectId reference and cannot be queried by nested properties directly in MongoDB
+      const matchingUsers = await User.find({
+        fullName: { $regex: search, $options: 'i' },
+        role: 'therapist'
+      }).select('_id');
+      const userIds = matchingUsers.map(u => u._id);
+
       searchFilter = {
         $or: [
-          { 'user.fullName': { $regex: search, $options: 'i' } },
+          { user: { $in: userIds } },
           { specialties: { $in: [new RegExp(search, 'i')] } },
           { education: { $regex: search, $options: 'i' } }
         ]
@@ -64,18 +71,18 @@ router.get('/', optionalAuth, async (req, res) => {
   }
 });
 
-// @desc    Get single therapist
-// @route   GET /api/therapists/:id
-// @access  Public
-router.get('/:id', optionalAuth, async (req, res) => {
+// @desc    Get therapist profile
+// @route   GET /api/therapists/profile
+// @access  Private (Therapist only)
+router.get('/profile', authenticateToken, authorizeRoles('therapist'), async (req, res) => {
   try {
-    const therapist = await Therapist.findById(req.params.id)
-      .populate('user', 'fullName email profileImage');
+    const therapist = await Therapist.findOne({ user: req.user._id })
+      .populate('user', 'fullName email profileImage mobile');
 
     if (!therapist) {
       return res.status(404).json({
         success: false,
-        message: 'Therapist not found'
+        message: 'Therapist profile not found'
       });
     }
 
@@ -84,10 +91,10 @@ router.get('/:id', optionalAuth, async (req, res) => {
       therapist
     });
   } catch (error) {
-    console.error('Get therapist error:', error);
+    console.error('Get therapist profile error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get therapist'
+      message: 'Failed to get therapist profile'
     });
   }
 });
@@ -120,10 +127,32 @@ router.put('/profile', [
     .optional()
     .isFloat({ min: 0 })
     .withMessage('Hourly rate must be a positive number'),
+  body('roleType')
+    .optional()
+    .trim(),
+  body('licenseNumber')
+    .optional()
+    .trim(),
+  body('languagesSpoken')
+    .optional()
+    .isArray()
+    .withMessage('Languages spoken must be an array'),
+  body('digitalSignature')
+    .optional()
+    .trim(),
+  body('stateResidence')
+    .optional()
+    .trim(),
+  body('cityResidence')
+    .optional()
+    .trim(),
   handleValidationErrors
 ], async (req, res) => {
   try {
-    const { specialties, experienceYears, education, bio, hourlyRate, availability } = req.body;
+    const { 
+      specialties, experienceYears, education, bio, hourlyRate, availability,
+      roleType, licenseNumber, languagesSpoken, digitalSignature, stateResidence, cityResidence
+    } = req.body;
     
     const updateData = {};
     if (specialties) updateData.specialties = specialties;
@@ -132,6 +161,12 @@ router.put('/profile', [
     if (bio) updateData.bio = bio;
     if (hourlyRate !== undefined) updateData.hourlyRate = hourlyRate;
     if (availability) updateData.availability = availability;
+    if (roleType !== undefined) updateData.roleType = roleType;
+    if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber;
+    if (languagesSpoken !== undefined) updateData.languagesSpoken = languagesSpoken;
+    if (digitalSignature !== undefined) updateData.digitalSignature = digitalSignature;
+    if (stateResidence !== undefined) updateData.stateResidence = stateResidence;
+    if (cityResidence !== undefined) updateData.cityResidence = cityResidence;
 
     const therapist = await Therapist.findOneAndUpdate(
       { user: req.user._id },
@@ -155,34 +190,6 @@ router.put('/profile', [
     res.status(500).json({
       success: false,
       message: 'Failed to update therapist profile'
-    });
-  }
-});
-
-// @desc    Get therapist profile
-// @route   GET /api/therapists/profile
-// @access  Private (Therapist only)
-router.get('/profile', authenticateToken, authorizeRoles('therapist'), async (req, res) => {
-  try {
-    const therapist = await Therapist.findOne({ user: req.user._id })
-      .populate('user', 'fullName email profileImage mobile');
-
-    if (!therapist) {
-      return res.status(404).json({
-        success: false,
-        message: 'Therapist profile not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      therapist
-    });
-  } catch (error) {
-    console.error('Get therapist profile error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get therapist profile'
     });
   }
 });
@@ -218,6 +225,34 @@ router.get('/stats', authenticateToken, authorizeRoles('therapist'), async (req,
     res.status(500).json({
       success: false,
       message: 'Failed to get therapist statistics'
+    });
+  }
+});
+
+// @desc    Get single therapist
+// @route   GET /api/therapists/:id
+// @access  Public
+router.get('/:id', optionalAuth, async (req, res) => {
+  try {
+    const therapist = await Therapist.findById(req.params.id)
+      .populate('user', 'fullName email profileImage');
+
+    if (!therapist) {
+      return res.status(404).json({
+        success: false,
+        message: 'Therapist not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      therapist
+    });
+  } catch (error) {
+    console.error('Get therapist error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get therapist'
     });
   }
 });

@@ -13,16 +13,18 @@ import MemberDashboardLayout from './components/ui/MemberDashboardLayout';
 import MemberDashboardPage from './components/pages/DashboardPage';
 import RoomsPage from './components/pages/RoomsPage';
 import BookingsPage from './components/pages/BookingsPage';
-import RoomHistoryPage from './components/pages/RoomHistoryPage';
 import ProfilePage from './components/pages/ProfilePage';
 import TherapistDirectoryPage from './components/pages/TherapistDirectoryPage';
 import PeerSupportRoomPage from './components/pages/PeerSupportRoomPage';
+import CbtBuddyPage from './components/pages/CbtBuddyPage';
 
 import TherapistDashboardLayout from './components/ui/TherapistDashboardLayout';
 import TherapistDashboardPage from './components/pages/TherapistDashboardPage';
 import SchedulePage from './components/pages/SchedulePage';
 import TherapistProfilePage from './components/pages/TherapistProfilePage';
+import ClinicalRecordsPage from './components/pages/ClinicalRecordsPage';
 import MoodCheckerPage from './components/pages/MoodCheckerPage';
+import MessagesPage from './components/pages/MessagesPage';
 
 function App() {
   return (
@@ -43,7 +45,8 @@ function App() {
               <Route path="therapists" element={<TherapistDirectoryPage />} />
               <Route path="bookings" element={<BookingsPage />} />
               <Route path="mood" element={<MoodCheckerPage />} />
-              <Route path="history" element={<RoomHistoryPage />} />
+              <Route path="buddy" element={<CbtBuddyPage />} />
+              <Route path="messages" element={<MessagesPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="room/:roomId" element={<PeerSupportRoomPage />} />
             </Route>
@@ -54,6 +57,8 @@ function App() {
             <Route path="/app/therapist" element={<TherapistDashboardLayout />}>
               <Route index element={<TherapistDashboardPage />} />
               <Route path="schedule" element={<SchedulePage />} />
+              <Route path="records" element={<ClinicalRecordsPage />} />
+              <Route path="messages" element={<MessagesPage />} />
               <Route path="profile" element={<TherapistProfilePage />} />
               <Route path="room/:roomId" element={<PeerSupportRoomPage />} />
             </Route>

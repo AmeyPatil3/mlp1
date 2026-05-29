@@ -33,7 +33,7 @@ const appointmentSchema = new mongoose.Schema({
   },
   notes: {
     type: String,
-    maxlength: [10000, 'Notes cannot exceed 10000 characters']
+    maxlength: [1000, 'Notes cannot exceed 1000 characters']
   },
   meetingLink: {
     type: String
@@ -85,47 +85,9 @@ appointmentSchema.pre(/^find/, function(next) {
   next();
 });
 
-// Static method to expire passed appointments that have no active participants in call
-appointmentSchema.statics.expirePassedAppointments = async function(io) {
-  const now = new Date();
-  
-  // Find all scheduled, confirmed, or in-progress appointments
-  const candidates = await this.find({
-    status: { $in: ['scheduled', 'confirmed', 'in-progress'] }
-  });
-  
-  const updatedAppointments = [];
-
-  for (const apt of candidates) {
-    const scheduledEnd = new Date(new Date(apt.scheduledDate).getTime() + apt.duration * 60 * 1000);
-    if (scheduledEnd < now) {
-      // The time slot has expired!
-      let activeCount = 0;
-      if (apt.meetingRoomId) {
-        try {
-          const room = await mongoose.model('Room').findById(apt.meetingRoomId);
-          if (room) {
-            activeCount = room.participants.filter(p => p.isActive).length;
-          }
-        } catch (_err) {
-          // Ignore
-        }
-      }
-      
-      if (activeCount === 0) {
-        // No one is in the call and time slot has ended -> completed!
-        apt.status = 'completed';
-        await apt.save();
-        updatedAppointments.push(apt);
-      }
-    }
-  }
-
-  if (updatedAppointments.length > 0 && io) {
-    io.emit('appointments_updated');
-  }
-
-  return updatedAppointments;
-};
+// Index for efficient queries
+appointmentSchema.index({ user: 1, scheduledDate: 1 });
+appointmentSchema.index({ therapist: 1, scheduledDate: 1 });
+appointmentSchema.index({ status: 1, scheduledDate: 1 });
 
 export default mongoose.model('Appointment', appointmentSchema);

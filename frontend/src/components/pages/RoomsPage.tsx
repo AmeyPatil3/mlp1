@@ -6,6 +6,7 @@ import type { Room } from '../../types';
 import RoomCardSkeleton from '../ui/skeletons/RoomCardSkeleton';
 import CreateRoomModal from '../ui/CreateRoomModal';
 import { useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 
 const RoomsPage: React.FC = () => {
     const [rooms, setRooms] = useState<Room[]>([]);
@@ -16,8 +17,10 @@ const RoomsPage: React.FC = () => {
 
     useEffect(() => {
         let isMounted = true;
-        const fetchRooms = async () => {
-            setLoading(true);
+        let socket: any = null;
+
+        const fetchRooms = async (showLoading = true) => {
+            if (showLoading) setLoading(true);
             try {
                 const response = await api.get('/rooms', { params: { page: 1, limit: 50 } });
                 if (!isMounted) return;
@@ -27,12 +30,64 @@ const RoomsPage: React.FC = () => {
                 console.error('Rooms fetch error:', err);
                 setError('Could not fetch rooms. Please try again.');
             } finally {
-                if (isMounted) setLoading(false);
+                if (isMounted && showLoading) setLoading(false);
             }
         };
-        fetchRooms();
-        const interval = setInterval(fetchRooms, 5000);
-        return () => { isMounted = false; clearInterval(interval); };
+
+        fetchRooms(true);
+
+        // Connect to Socket.IO for real-time dashboard updates
+        try {
+            const authData = localStorage.getItem('auth');
+            const token = authData ? JSON.parse(authData).token : null;
+
+            if (token) {
+                socket = io((process.env.VITE_SOCKET_URL as string) || 'http://localhost:5001', {
+                    auth: { token },
+                    transports: ['websocket']
+                });
+
+                // Listen for real-time participant count changes
+                socket.on('room_count_update', (data: { roomId: string, participantsCount: number }) => {
+                    if (!isMounted) return;
+                    setRooms(prevRooms => prevRooms.map(room => {
+                        if (room._id === data.roomId || room.roomId === data.roomId) {
+                            return { ...room, participantsCount: data.participantsCount };
+                        }
+                        return room;
+                    }));
+                });
+
+                // Listen for live room additions
+                socket.on('room_created', (newRoom: Room) => {
+                    if (!isMounted) return;
+                    setRooms(prevRooms => {
+                        // Prevent duplicate cards
+                        if (prevRooms.some(r => r._id === newRoom._id)) return prevRooms;
+                        return [newRoom, ...prevRooms];
+                    });
+                });
+
+                // Listen for live room deletions/expirations
+                socket.on('room_deleted', (data: { id: string, roomId: string }) => {
+                    if (!isMounted) return;
+                    setRooms(prevRooms => prevRooms.filter(r => r._id !== data.id && r.roomId !== data.roomId));
+                });
+            }
+        } catch (socketErr) {
+            console.error('Failed to establish real-time dashboard socket connection:', socketErr);
+        }
+
+        // Lightweight fallback poll every 30 seconds to maintain sync resilience
+        const interval = setInterval(() => fetchRooms(false), 30000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+            if (socket) {
+                socket.disconnect();
+            }
+        };
     }, []);
 
     const handleCreated = (roomMongoId: string) => {
