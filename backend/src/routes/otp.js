@@ -224,18 +224,18 @@ router.post('/verify-widget-token', async (req, res) => {
     }
 
     const postData = JSON.stringify({
-      "authkey": authkey,
       "access-token": accessToken
     });
 
     const options = {
-      hostname: 'control.msg91.com',
+      hostname: 'api.msg91.com',
       port: 443,
       path: '/api/v5/widget/verifyAccessToken',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'authkey': authkey,
         'Content-Length': postData.length
       }
     };
