@@ -3,6 +3,7 @@
   <h1>🧠 MindLink</h1>
   <h3>Anonymous Mental Health & Counseling Platform</h3>
   <p><i>A premium, secure, and real-time wellbeing platform designed for client anonymity, clinical documentation excellence, and collaborative peer healing.</i></p>
+  <p>🚀 <b>Live Application:</b> <a href="https://mindlink3.vercel.app">https://mindlink3.vercel.app</a></p>
 
   [![Vite](https://img.shields.io/badge/Vite-6.3-646CFF?logo=vite&logoColor=white)](#)
   [![React](https://img.shields.io/badge/React-19.0-61DAFB?logo=react&logoColor=white)](#)
