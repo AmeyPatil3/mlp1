@@ -31,7 +31,7 @@ const LandingFooter: React.FC = () => (
 
 const FeatureCard: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode }> = ({ icon, title, children }) => (
   <div className="bg-white p-8 rounded-lg shadow-lg">
-    <div className="flex-shrink-0 mb-4">{icon}</div>
+    <div className="flex justify-center mb-4">{icon}</div>
     <h3 className="text-xl font-bold text-gray-800">{title}</h3>
     <p className="mt-2 text-gray-600">{children}</p>
   </div>
